@@ -210,9 +210,16 @@ public:
 };
 ```
 
-### `CompatibilityChecker` (얇은 조율자 — 규칙을 직접 보유하지 않음)
+### `CompatibilityChecker` (얇은 조율자)
 
 ```cpp
+class CompatibilityChecker {
+public:
+    bool        isValid(const Car& car) const;
+    std::string getFailReason(const Car& car) const;
+};
+
+// 구현 — 규칙을 직접 알지 못하고, 각 인터페이스에게 위임
 bool CompatibilityChecker::isValid(const Car& car) const {
     return car.engine->isCompatibleWith(*car.carType)
         && car.brakeSystem->isCompatibleWithCarType(*car.carType)
@@ -220,7 +227,7 @@ bool CompatibilityChecker::isValid(const Car& car) const {
 }
 ```
 
-### `ConsoleUI` (PartRegistry 기반 동적 메뉴)
+### `ConsoleUI` (동적 메뉴 출력)
 
 ```cpp
 class ConsoleUI {
@@ -238,7 +245,7 @@ private:
 };
 ```
 
-### `CarAssembler` (전체 흐름 조율)
+### `CarAssembler`
 
 ```cpp
 class CarAssembler {
@@ -280,145 +287,129 @@ carProject/
 
 ---
 
-## 구현 Phases
+## 구현 Phase
 
-> 각 Phase는 **단독으로 빌드 및 실행 가능한 SW**를 목표로 한다.
-> 고객님께서 직접 실행하여 해당 Phase의 동작을 확인하고 피드백을 주신다.
-
----
-
-### Phase 1 — 차량 타입 선택
-
-**구현 범위**
-- 인터페이스 4종 헤더 작성 (`ICarType`, `IEngine`, `IBrakeSystem`, `ISteeringSystem`)
-- `ICarType` 구체 클래스 3종 (`Sedan`, `SUV`, `Truck`)
-- `PartRegistry` (carTypes 등록만)
-- `ConsoleUI::askCarType()` — 차량 타입 선택 메뉴 출력 및 입력
-- `CarAssembler` 골격 — 차량 타입 선택 후 선택 결과 출력하고 종료
-
-**Release 빌드 실행 시 동작**
-```
-어떤 차량 타입을 선택하시겠습니까?
-1. Sedan
-2. SUV
-3. Truck
-INPUT > 2
-SUV 를 선택하셨습니다.
-```
-
-**고객님 확인 포인트**
-- `1`, `2`, `3` 각각 입력했을 때 선택한 차량 이름이 정확히 출력되는지
-- 범위를 벗어난 숫자(`0`, `4`, `99`) 입력 시 오류 메시지가 나오고 재입력을 받는지
-- 문자(`abc`) 입력 시 오류 처리가 되는지
+> 각 Phase는 **독립적으로 빌드되고 실행 가능한 SW**를 산출물로 한다.
+> 고객님께서 직접 실행하여 테스트하시고, 피드백을 주시면 다음 Phase로 진행합니다.
 
 ---
 
-### Phase 2 — 전체 부품 선택 플로우
+### Phase 1 — 차량 타입 · 엔진 선택 콘솔
 
-**구현 범위**
-- `IEngine` / `IBrakeSystem` / `ISteeringSystem` 구체 클래스 전체 (8종)
-- `PartRegistry` 전체 부품 등록
-- `ConsoleUI` 나머지 메뉴 3종 (`askEngine`, `askBrakeSystem`, `askSteeringSystem`)
-- `CarAssembler` — 차량 타입 → 엔진 → 제동장치 → 조향장치 순서로 선택 진행
-- 이전 단계로 돌아가기(`0` 입력) 동작
-- 모든 선택 완료 후 선택 요약 출력
+**개발 목표**
+- 인터페이스 4종 (`ICarType`, `IEngine`, `IBrakeSystem`, `ISteeringSystem`) 정의
+- CarType 구현체 3종 (`Sedan`, `SUV`, `Truck`) 작성
+- Engine 구현체 3종 (`GMEngine`, `ToyotaEngine`, `WIAEngine`) 작성 — 호환성 로직 포함
+- `PartRegistry` 기본 구성 (CarType, Engine 등록)
+- `ConsoleUI` : 차량 타입 선택 → 엔진 선택 2단계 메뉴
+- `CarAssembler` : Phase 1 범위의 흐름 구동
+- `Car` 클래스: carType / engine 상태 보유
 
-**Release 빌드 실행 시 동작**
+**산출물**: Release 빌드 실행 시 차량 타입 → 엔진을 선택할 수 있는 콘솔 앱
+
+**고객님 테스트 포인트**
 ```
-[차량 타입] 1. Sedan  2. SUV  3. Truck
-INPUT > 1
-[엔진]      0. 이전   1. GM   2. TOYOTA  3. WIA
-INPUT > 2
-[제동장치]  0. 이전   1. MANDO  2. Continental  3. Bosch
-INPUT > 3
-[조향장치]  0. 이전   1. Bosch  2. Mobis
-INPUT > 1
-
-=== 조립 완료 ===
-차량 타입  : Sedan
-엔진       : TOYOTA
-제동장치   : Bosch
-조향장치   : Bosch
+1. 프로그램 실행 후 차량 타입 메뉴(Sedan / SUV / Truck)가 출력되는가?
+2. 번호 입력으로 차량 타입을 선택할 수 있는가?
+3. 이후 엔진 메뉴(GM / TOYOTA / WIA)가 출력되는가?
+4. 엔진을 선택하면 선택한 타입과 엔진 이름이 화면에 출력되는가?
+5. 범위 밖 숫자나 문자를 입력했을 때 오류 메시지가 나오고 재입력을 요청하는가?
 ```
 
-**고객님 확인 포인트**
-- 4단계(타입 → 엔진 → 제동 → 조향)가 순서대로 진행되는지
-- 각 단계에서 `0` 입력 시 이전 단계로 정확히 돌아가는지
-- 첫 번째 단계(차량 타입)에서 `0` 입력 시 처리가 자연스러운지
-- 조립 완료 후 선택한 부품 요약이 정확히 출력되는지
+---
+
+### Phase 2 — 제동장치 · 조향장치 선택 + 이전 단계 복귀
+
+**개발 목표**
+- BrakeSystem 구현체 3종 (`MandoBrake`, `ContinentalBrake`, `BoschBrake`) 작성 — 호환성 로직 포함
+- SteeringSystem 구현체 2종 (`BoschSteering`, `MobisSteering`) 작성
+- `PartRegistry`에 BrakeSystem / SteeringSystem 추가 등록
+- `ConsoleUI` : 제동장치 / 조향장치 선택 메뉴 추가
+- `CarAssembler` : 4단계 전체 흐름 + **`0` 입력 시 이전 단계 복귀** 로직
+
+**산출물**: 4개 부품을 순서대로 선택하고, 언제든 이전 단계로 돌아갈 수 있는 콘솔 앱
+
+**고객님 테스트 포인트**
+```
+1. 차량 타입 → 엔진 → 제동장치 → 조향장치 4단계가 순서대로 진행되는가?
+2. 각 단계에서 0을 입력하면 이전 메뉴로 돌아가는가?
+3. 조향장치까지 선택 완료 시 선택한 4개 부품 전체가 화면에 출력되는가?
+4. exit 입력 시 프로그램이 종료되는가?
+```
 
 ---
 
 ### Phase 3 — 호환성 검사 + RUN / TEST
 
-**구현 범위**
-- 각 구체 클래스에 호환성 로직 완성
-- `CompatibilityChecker` (`isValid`, `getFailReason`)
-- `CarAssembler` — 조립 완료 후 RUN / TEST 선택 메뉴 추가
-- RUN: 유효 조합이면 차량 사양 출력, 불량 조합이면 "동작하지 않습니다" 출력
-- TEST: 호환성 검사 결과 PASS / FAIL + 실패 사유 출력
+**개발 목표**
+- `CompatibilityChecker` 구현 (각 인터페이스 메서드에 위임)
+- 조립 완료 후 **RUN** / **TEST** / **처음으로** 선택 메뉴 추가
+- RUN: 유효한 조합이면 차량 구성 출력 + "차량이 시동됩니다", 무효면 "작동하지 않습니다"
+- TEST: 호환성 검사 결과(PASS / FAIL + 실패 사유) 출력
+- 조향장치 완료 → RUN/TEST 메뉴까지 전체 흐름 완성
 
-**Release 빌드 실행 시 동작 예시 (FAIL 케이스)**
+**산출물**: 부품 선택부터 호환성 검사까지 동작하는 완전한 콘솔 앱
+
+**고객님 테스트 포인트**
 ```
-=== 조립 완료 ===
-차량 타입  : Sedan
-제동장치   : Continental
-...
+[정상 조합 확인]
+1. Sedan + GM + MANDO + Bosch 선택 후 RUN → 차량 구성 출력 + 시동 메시지가 나오는가?
+2. 동일 조합 TEST → PASS가 출력되는가?
 
-1. RUN  2. TEST  0. 처음으로
-INPUT > 2
+[비정상 조합 확인]
+3. Sedan + GM + Continental + Mobis 선택 후 TEST → FAIL + "Sedan에는 Continental 사용 불가" 메시지가 나오는가?
+4. SUV + TOYOTA + MANDO + Bosch 선택 후 RUN → "차량이 작동하지 않습니다" 메시지가 나오는가?
+5. Truck + GM + MANDO + Bosch 선택 후 TEST → FAIL + "Truck에는 MANDO 사용 불가" 메시지가 나오는가?
+6. Sedan + GM + Bosch(brake) + Mobis 선택 후 TEST → FAIL + "Bosch 제동장치에는 Bosch 조향장치만 사용 가능" 메시지가 나오는가?
 
-[테스트 결과] FAIL
-사유 : Sedan에는 Continental 제동장치 사용 불가
+[흐름 확인]
+7. RUN/TEST 후 '처음으로'(0) 선택 시 차량 타입 선택 화면으로 돌아가는가?
 ```
-
-**고객님 확인 포인트**
-
-아래 5가지 제한조건을 직접 조합해서 TEST → FAIL 이 나오는지 검증해 주세요:
-
-| 확인 | 조합 | 기대 결과 |
-|------|------|----------|
-| ① | Sedan + Continental 제동장치 | FAIL |
-| ② | SUV + TOYOTA 엔진 | FAIL |
-| ③ | Truck + WIA 엔진 | FAIL |
-| ④ | Truck + MANDO 제동장치 | FAIL |
-| ⑤ | (아무 타입) + Bosch 제동장치 + Mobis 조향장치 | FAIL |
-| ⑥ | Sedan + GM + MANDO + Bosch 조향 | PASS |
-| ⑦ | Truck + GM + Bosch 제동 + Bosch 조향 | PASS |
-
-RUN도 동일 조합으로 확인해 주세요 — FAIL 조합은 "동작하지 않습니다", PASS 조합은 사양이 출력되어야 합니다.
 
 ---
 
-### Phase 4 — 유닛테스트 (Debug 빌드)
+### Phase 4 — 유닛테스트 완성 (Debug 빌드)
 
-**구현 범위**
-- `tests/AssemblerTest.cpp` 작성
-- `CompatibilityChecker::isValid` 에 대한 Google Mock 테스트 8종
+**개발 목표**
+- `tests/AssemblerTest.cpp` 에 Google Mock 기반 테스트 케이스 8종 작성
+- `assemble.cpp` 최종 정리 (Release: `CarAssembler().run()` 한 줄, Debug: GMock 진입점)
 
-**Debug 빌드 실행 시 동작**
+**산출물**: Debug 빌드 시 8개 테스트 케이스가 모두 PASS되는 상태
+
+**고객님 테스트 포인트**
 ```
-[==========] Running 8 tests from 1 test suite.
-[ RUN      ] CompatibilityTest.Sedan_Continental_ShouldFail
-[       OK ] CompatibilityTest.Sedan_Continental_ShouldFail
-...
-[==========] 8 tests ran.
-[  PASSED  ] 8 tests.
+1. Visual Studio에서 빌드 구성을 Debug로 변경 후 실행
+2. 콘솔에 아래와 유사한 출력이 나오는가?
+
+   [==========] Running 8 tests from 1 test suite.
+   [ RUN      ] CompatibilityTest.SedanContinental_Fails
+   [       OK ] CompatibilityTest.SedanContinental_Fails
+   ...
+   [==========] 8 tests ran.
+   [  PASSED  ] 8 tests.
+
+3. FAILED 항목이 0개인가?
 ```
 
-**고객님 확인 포인트**
-- Debug 빌드로 실행했을 때 8개 테스트가 모두 `PASSED` 인지
-- 테스트 이름만 읽어도 어떤 조합을 검사하는지 이해되는지 (가독성)
+| # | 테스트 케이스 | 기대 결과 |
+|---|-------------|----------|
+| 1 | Sedan + ContinentalBrake | `isValid` → false |
+| 2 | SUV + ToyotaEngine | `isValid` → false |
+| 3 | Truck + WIAEngine | `isValid` → false |
+| 4 | Truck + MandoBrake | `isValid` → false |
+| 5 | BoschBrake + MobisSteering | `isValid` → false |
+| 6 | Sedan + GMEngine + MandoBrake + BoschSteering | `isValid` → true |
+| 7 | Truck + GMEngine + BoschBrake + BoschSteering | `isValid` → true |
+| 8 | SUV + GMEngine + ContinentalBrake + MobisSteering | `isValid` → true |
 
 ---
 
 ## OCP 확장성 검증 기준
 
-Phase 4 완료 후, 아래 시나리오로 OCP가 실제로 적용되었는지 검증한다.
-
 **새 차량 타입 `VAN` 추가 시 수정 범위:**
 1. `Van.h` 신규 작성 (`ICarType` 구현)
 2. `PartRegistry`에 `Van` 인스턴스 등록
+3. VAN 관련 제한이 있는 엔진/브레이크의 `isCompatibleWith` 내부만 수정
 
 `CompatibilityChecker`, `CarAssembler`, `ConsoleUI` — **수정 없음**
 
