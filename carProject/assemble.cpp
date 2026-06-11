@@ -265,7 +265,18 @@ int main()
 
 #else
 
+#include "CarAssembler.h"
+
 int main()
+{
+    CarAssembler().run();
+    return 0;
+}
+
+// =====================================================================
+// 아래는 더 이상 사용되지 않는 구 절차지향 main (참조용 보존)
+// =====================================================================
+static void legacyMain_unused()
 {
     char buf[100];
     int step = CarType_Q;
@@ -424,8 +435,6 @@ int main()
             delay(2000);
         }
     }
-
-    return 0;
 }
 
 #endif
